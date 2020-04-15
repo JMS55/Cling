@@ -1,3 +1,4 @@
+use capabilities::{Capabilities, Capability, Flag};
 use chrono::Utc;
 use clap::{App, Arg};
 use dnsclient::sync::DNSClient;
@@ -65,22 +66,39 @@ fn main() {
         }
     };
 
-    // Setup Tx and Rx
+    // Setup Tx and Rx. Needs to first acquire the CAP_NET_RAW capability.
+    let mut capabilities =
+        Capabilities::from_current_proc().expect("Could not get the process's capabilities");
+    capabilities.update(&[Capability::CAP_NET_RAW], Flag::Effective, true);
+    capabilities
+        .apply()
+        .expect("Could not acquire the CAP_NET_RAW capability. Did you run 'sudo setcap cap_net_raw+p cling'?");
     let protocol = TransportChannelType::Layer3(IpNextHeaderProtocols::Icmp);
     if let Ok((mut tx, mut rx)) = transport_channel(1024, protocol) {
+        // Release the CAP_NET_RAW capability
+        let mut capabilities =
+            Capabilities::from_current_proc().expect("Could not get the process's capabilities");
+        capabilities.update(&[Capability::CAP_NET_RAW], Flag::Effective, false);
+        capabilities
+            .apply()
+            .expect("Could not update process capabilities");
+
+        // Setup program state
         let id = process::id() as u16;
-        let running = Arc::new(AtomicBool::new(true));
+        let main_running = Arc::new(AtomicBool::new(true));
+        let threads_running = Arc::new(AtomicBool::new(true));
         let requests_sent = Arc::new(AtomicU16::new(0));
         let replies_received = Arc::new(AtomicU16::new(0));
         let rtt_sum = Arc::new(AtomicI64::new(0));
 
         // Setup Ctrl+C signal handler
-        let r = running.clone();
+        let tm = main_running.clone();
+        let tr = threads_running.clone();
         let rs = requests_sent.clone();
         let rr = replies_received.clone();
         let rtts = rtt_sum.clone();
         ctrlc::set_handler(move || {
-            r.store(false, Ordering::SeqCst);
+            tr.store(false, Ordering::SeqCst);
 
             // Print report
             let requests_sent = rs.load(Ordering::SeqCst);
@@ -94,11 +112,13 @@ fn main() {
                 rtt_sum as f64 / replies_received as f64,
                 1.0 - (replies_received as f64 / requests_sent as f64)
             );
+
+            tm.store(false, Ordering::SeqCst);
         })
         .expect("Could not set Ctrl+C signal handler");
 
         // Spawn a thread that sends echo requests in a loop
-        let r = running.clone();
+        let r = threads_running.clone();
         let rs = requests_sent.clone();
         thread::spawn(move || {
             while r.load(Ordering::SeqCst) {
@@ -139,7 +159,7 @@ fn main() {
         });
 
         // Spawn a thread that loops over incoming packets and print the elapsed time of any replies
-        let r = running.clone();
+        let r = threads_running.clone();
         thread::spawn(move || {
             let mut previous_reply_sequence_number = 0;
             let mut packet_iter = ipv4_packet_iter(&mut rx);
@@ -183,6 +203,6 @@ fn main() {
         });
 
         // Don't exit main() until Ctrl+C is pressed
-        while running.load(Ordering::SeqCst) {}
+        while main_running.load(Ordering::SeqCst) {}
     }
 }

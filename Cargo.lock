@@ -145,6 +145,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
+name = "capabilities"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8aee082d97a2cb85e1282361758d96aa5162967c34a257c6c4d7fa0711a1028f"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -200,6 +209,7 @@ name = "cling"
 version = "1.0.0"
 dependencies = [
  "bincode",
+ "capabilities",
  "chrono",
  "clap",
  "ctrlc",
