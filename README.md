@@ -4,10 +4,10 @@
 ## Requirements
 * Linux
 * Nightly Rust
-* libpcap
+* libcap
     * Fedora: `libcap-devel`
     * Debian/Ubuntu: `libcap-dev`
-    * Arch: `libpcap`
+    * Arch: `libcap`
 
 ## Building From Source
 1. `git clone https://github.com/JMS55/cling`

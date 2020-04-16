@@ -158,7 +158,7 @@ fn main() {
             }
         });
 
-        // Spawn a thread that loops over incoming packets and print the elapsed time of any replies
+        // Spawn a thread that loops over incoming packets and prints the elapsed time of any replies
         let r = threads_running.clone();
         thread::spawn(move || {
             let mut previous_reply_sequence_number = 0;
